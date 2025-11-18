@@ -2,24 +2,34 @@
 
 ## Architecture Overview
 
-This is a FastAPI + vanilla JavaScript web application for managing school extracurricular activities. The architecture consists of:
+This is a **React + FastAPI** web application for managing school extracurricular activities. The architecture consists of:
 
-- **Backend**: `src/app.py` - FastAPI server with in-memory data storage (no database)
-- **Frontend**: `src/static/` - Vanilla JavaScript SPA (index.html, app.js, styles.css)
+- **Backend**: `src/app.py` - FastAPI API server with in-memory data storage (no database)
+- **Frontend**: `frontend/` - React SPA built with Vite (components, API utilities, styles)
 - **Tests**: `tests/test_app.py` - Pytest-based API tests using FastAPI TestClient
 
 **Critical**: Data is stored in-memory in the `activities` dictionary in `app.py`. All data resets on server restart.
 
 ## Development Workflow
 
-### Running the Application
+### Running the Backend
 ```bash
 # From workspace root
 python src/app.py
 # OR use venv if configured
 .venv/bin/python src/app.py
 ```
-Server runs on `http://localhost:8000`, root redirects to `/static/index.html`
+Backend API server runs on `http://localhost:8000`
+
+### Running the Frontend
+```bash
+# From workspace root
+cd frontend
+npm run dev
+```
+React dev server runs on `http://localhost:5173`
+
+**Development setup**: Run both servers simultaneously. Vite proxies API requests to `http://localhost:8000` automatically.
 
 ### Running Tests
 ```bash
@@ -50,27 +60,35 @@ def signup_for_activity(activity_name: str, email: str):
 ```
 
 ### Frontend Patterns
-- **Event delegation**: Delete buttons use event delegation on `activitiesList` container
-- **Data attributes**: Store context in `data-activity` and `data-email` attributes
-- **Auto-refresh**: Call `fetchActivities()` after mutations (signup/unregister) to sync UI
-- **No framework**: Pure vanilla JavaScript with async/await for fetch calls
+- **React components**: Functional components with hooks (useState, useEffect)
+- **API integration**: Centralized in `frontend/src/api.js` with fetch calls
+- **State management**: Local component state, lifted to App.jsx for shared data
+- **Auto-refresh**: Call `loadActivities()` after mutations (signup/unregister) to sync UI
+- **URL encoding**: Always use `encodeURIComponent()` for activity names in API calls
 
-Example from `app.js`:
+Example component pattern:
 ```javascript
-// Event delegation pattern for dynamically added delete buttons
-activitiesList.addEventListener("click", async (event) => {
-  if (event.target.classList.contains("delete-btn")) {
-    const activity = event.target.dataset.activity;
-    const email = event.target.dataset.email;
-    // ... handle delete
-  }
-});
+function ActivityCard({ name, details, onUnregister }) {
+  const handleDelete = (email) => {
+    if (window.confirm(`Are you sure...`)) {
+      onUnregister(name, email);
+    }
+  };
+  // ... render logic
+}
 ```
 
 ### CSS Architecture
-- **No preprocessor**: Plain CSS with BEM-like naming (`.participants-list`, `.delete-btn`)
-- **List styling override**: Participant lists use `list-style-type: none` with flexbox layout
-- **Hover effects**: Buttons use opacity and transform transitions
+- **Plain CSS**: Imported into React via `index.css`
+- **Class-based styling**: Traditional CSS classes (`.participants-list`, `.delete-btn`)
+- **Color scheme**: `#1a237e` (primary), `#0066cc` (secondary), `#3949ab` (hover)
+- **Responsive**: Basic media query at 768px breakpoint
+
+### CORS Configuration
+- **Development**: Backend allows `http://localhost:5173` (Vite default port)
+- **Configured in**: `src/app.py` via `CORSMiddleware`
+- **Scope**: All methods and headers allowed for development convenience
+- **Production**: Update `allow_origins` list in `app.py` for deployed frontend URL
 
 ## Testing Conventions
 
@@ -95,20 +113,29 @@ def reset_activities():
 
 ### Adding a New Endpoint
 1. Add route handler in `app.py` following existing patterns (activity name in path, email in query)
-2. Update `fetchActivities()` or add new fetch function in `app.js`
+2. Add new API function in `frontend/src/api.js` with proper URL encoding
 3. Add comprehensive tests in `tests/test_app.py` with success/error cases
 4. Update `src/README.md` API table
 
 ### Adding UI Features
-1. Modify HTML structure in `index.html`
-2. Add event handlers in `app.js` using event delegation for dynamic content
-3. Style in `styles.css` following existing naming conventions
-4. **Always call `fetchActivities()` after mutations** to refresh UI
+1. Create or modify React component in `frontend/src/components/`
+2. Add state management in component or lift to App.jsx if shared
+3. Update styles in `frontend/src/index.css` following existing naming conventions
+4. **Always call `loadActivities()` after mutations** to refresh UI
 
 ### Modifying Data Model
 1. Update `activities` dictionary structure in `app.py`
 2. Update `reset_activities` fixture in `tests/test_app.py` with new structure
-3. Adjust frontend rendering in `app.js` to match new data shape
+3. Adjust React component rendering to match new data shape (e.g., in ActivityCard.jsx)
+2. Update `reset_activities` fixture in `tests/test_app.py` with new structure
+3. Adjust React component rendering to match new data shape (e.g., in ActivityCard.jsx)
+
+## Known Quirks
+
+- **Activity names as IDs**: Activities use display names as identifiers, so renaming breaks references
+- **No validation**: Email format, max participants limits are not enforced in code
+- **URL encoding**: Always use `encodeURIComponent()` for activity names in fetch URLs (e.g., "Chess Club" → "Chess%20Club")
+- **CORS in development**: Backend explicitly allows `localhost:5173` for React dev server
 
 ## Known Quirks
 
